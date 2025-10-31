@@ -111,6 +111,10 @@ func LoadDatasetWithFeatures(filename string, skipEmptyHouses bool, featuresToSe
 		features = append(features, featureRow)
 	}
 
+	if len(features) == 0 {
+		return nil, fmt.Errorf("no features found in dataset")
+	}
+
 	houses := make([]string, 0, len(housesMap))
 	for house := range housesMap {
 		houses = append(houses, house)

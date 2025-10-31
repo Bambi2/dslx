@@ -1,6 +1,7 @@
-.PHONY: all clean
+.PHONY: all clean build-linux docker-build
 
 BINDIR := bin
+BINDIR_LINUX := bin-linux
 PROGRAMS := $(BINDIR)/describe $(BINDIR)/histogram $(BINDIR)/logregpredict $(BINDIR)/logregtrain $(BINDIR)/pairplot $(BINDIR)/scatterplot
 
 INTERNAL_SOURCES := internal/hogwarts/dataset.go \
@@ -32,4 +33,18 @@ $(BINDIR)/scatterplot: cmd/scatterplot/scatter_plot.go $(INTERNAL_SOURCES) | $(B
 
 clean:
 	rm -rf $(BINDIR)
+	rm -rf $(BINDIR_LINUX)
+
+build-linux:
+	@echo "Creating output directory for binaries..."
+	@mkdir -p $(BINDIR_LINUX)
+	@echo "Building Docker image and compiling binaries..."
+	@docker build -t dslx-builder .
+	@echo "Extracting binaries to $(BINDIR_LINUX)/..."
+	@docker run --rm -v "$$(pwd)/$(BINDIR_LINUX):/binaries" dslx-builder
+	@echo ""
+	@echo "Done! Linux binaries are available in $(BINDIR_LINUX)/"
+	@ls -lh $(BINDIR_LINUX)/
+
+docker-build: build-linux
 

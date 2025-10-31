@@ -33,6 +33,10 @@ type Dataset struct {
 }
 
 func LoadDataset(filename string, skipEmptyHouses bool) (*Dataset, error) {
+	return LoadDatasetWithFeatures(filename, skipEmptyHouses, nil)
+}
+
+func LoadDatasetWithFeatures(filename string, skipEmptyHouses bool, featuresToSelect []string) (*Dataset, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -45,9 +49,31 @@ func LoadDataset(filename string, skipEmptyHouses bool) (*Dataset, error) {
 		return nil, err
 	}
 
-	header := records[0]
+	if len(records) == 0 {
+		return nil, fmt.Errorf("empty CSV file")
+	}
 
-	featureNames := header[featureStartIndex:featureEndIndex]
+	headerRow := records[0]
+	featureIndices := make([]int, 0)
+
+	if len(featuresToSelect) == 0 {
+		for i := featureStartIndex; i < featureEndIndex && i < len(headerRow); i++ {
+			featureIndices = append(featureIndices, i)
+			featuresToSelect = append(featuresToSelect, headerRow[i])
+		}
+	} else {
+		for _, featureName := range featuresToSelect {
+			for i, header := range headerRow {
+				if header == featureName {
+					featureIndices = append(featureIndices, i)
+					break
+				}
+			}
+		}
+		if len(featureIndices) != len(featuresToSelect) {
+			return nil, fmt.Errorf("some features not found in CSV headers")
+		}
+	}
 
 	features := make([][]float64, 0, len(records)-1)
 	labels := make([]string, 0, len(records)-1)
@@ -64,9 +90,13 @@ func LoadDataset(filename string, skipEmptyHouses bool) (*Dataset, error) {
 		labels = append(labels, house)
 		housesMap[house] = struct{}{}
 
-		featureRow := make([]float64, numberOfFeatures)
-		for j := range numberOfFeatures {
-			featureStr := row[featureStartIndex+j]
+		featureRow := make([]float64, len(featureIndices))
+		for j, featureIndex := range featureIndices {
+			if featureIndex >= len(row) {
+				featureRow[j] = math.NaN()
+				continue
+			}
+			featureStr := row[featureIndex]
 			if featureStr == "" || featureStr == " " {
 				featureRow[j] = math.NaN()
 			} else {
@@ -86,8 +116,9 @@ func LoadDataset(filename string, skipEmptyHouses bool) (*Dataset, error) {
 		houses = append(houses, house)
 	}
 
-	counts := make([]float64, numberOfFeatures)
-	for j := range numberOfFeatures {
+	numSelectedFeatures := len(featureIndices)
+	counts := make([]float64, numSelectedFeatures)
+	for j := range numSelectedFeatures {
 		count := 0.0
 		for i := range features {
 			if !math.IsNaN(features[i][j]) {
@@ -97,15 +128,15 @@ func LoadDataset(filename string, skipEmptyHouses bool) (*Dataset, error) {
 		counts[j] = count
 	}
 
-	means := make([]float64, numberOfFeatures)
-	stds := make([]float64, numberOfFeatures)
-	mins := make([]float64, numberOfFeatures)
-	maxs := make([]float64, numberOfFeatures)
-	q25s := make([]float64, numberOfFeatures)
-	q50s := make([]float64, numberOfFeatures)
-	q75s := make([]float64, numberOfFeatures)
+	means := make([]float64, numSelectedFeatures)
+	stds := make([]float64, numSelectedFeatures)
+	mins := make([]float64, numSelectedFeatures)
+	maxs := make([]float64, numSelectedFeatures)
+	q25s := make([]float64, numSelectedFeatures)
+	q50s := make([]float64, numSelectedFeatures)
+	q75s := make([]float64, numSelectedFeatures)
 
-	for i := range numberOfFeatures {
+	for i := range numSelectedFeatures {
 		means[i] = stats.Mean(getFeaureValues(i, features))
 		stds[i] = stats.Std(getFeaureValues(i, features))
 		if stds[i] < 1e-10 {
@@ -122,7 +153,7 @@ func LoadDataset(filename string, skipEmptyHouses bool) (*Dataset, error) {
 		Features:     features,
 		Labels:       labels,
 		Houses:       houses,
-		FeatureNames: featureNames,
+		FeatureNames: featuresToSelect,
 		Counts:       counts,
 		Means:        means,
 		Stds:         stds,

@@ -16,7 +16,15 @@ func main() {
 	csvFilePath := os.Args[1]
 	modelsFilePath := os.Args[2]
 
-	dataset, err := hogwarts.LoadDataset(csvFilePath, false)
+	dataset, err := hogwarts.LoadDatasetWithFeatures(csvFilePath, false, []string{
+		"Astronomy",
+		"Herbology",
+		"Defense Against the Dark Arts",
+		"Divination",
+		"Muggle Studies",
+		"Ancient Runes",
+		"Charms",
+	})
 	if err != nil {
 		fmt.Println("Error loading dataset:", err)
 		os.Exit(1)
